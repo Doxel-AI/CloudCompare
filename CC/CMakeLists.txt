@@ -67,4 +67,14 @@ if (WIN32)
 	set_property( TARGET ${PROJECT_NAME} APPEND PROPERTY COMPILE_DEFINITIONS _CRT_SECURE_NO_WARNINGS )
 endif()
 
+
+
+add_executable(testtt
+	reg.cpp
+)
+
+message("Making a new executable")
+
+
+
 cmake_policy(POP)

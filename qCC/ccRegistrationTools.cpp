@@ -60,10 +60,11 @@ bool ccRegistrationTools::ICP(	ccHObject* data,
 								bool useModelSFAsWeights/*=false*/,
 								int filters/*=CCLib::ICPRegistrationTools::SKIP_NONE*/,
 								int maxThreadCount/*=0*/,
-								QWidget* parent/*=0*/)
+								QWidget* parent/*=0*/
+								)
 {
 	//progress bar
-	ccProgressDialog pDlg(false, parent);
+	//ccProgressDialog pDlg(false, parent);
 
 	Garbage<CCLib::GenericIndexedCloudPersist> cloudGarbage;
 
@@ -84,13 +85,8 @@ bool ccRegistrationTools::ICP(	ccHObject* data,
 	CCLib::GenericIndexedCloudPersist* dataCloud = 0;
 	if (data->isKindOf(CC_TYPES::MESH))
 	{
-		dataCloud = CCLib::MeshSamplingTools::samplePointsOnMesh(ccHObjectCaster::ToGenericMesh(data), s_defaultSampledPointsOnDataMesh, &pDlg);
-		if (!dataCloud)
-		{
 			ccLog::Error("[ICP] Failed to sample points on 'data' mesh!");
 			return false;
-		}
-		cloudGarbage.add(dataCloud);
 	}
 	else
 	{
@@ -151,7 +147,7 @@ bool ccRegistrationTools::ICP(	ccHObject* data,
 			c2mParams.signedDistances = false;
 			c2mParams.flipNormals = false;
 			c2mParams.multiThread = false;
-			result = CCLib::DistanceComputationTools::computeCloud2MeshDistance(dataCloud, modelMesh, c2mParams, &pDlg);
+			result = CCLib::DistanceComputationTools::computeCloud2MeshDistance(dataCloud, modelMesh, c2mParams, NULL);
 		}
 		else
 		{
@@ -159,7 +155,7 @@ bool ccRegistrationTools::ICP(	ccHObject* data,
 																						modelCloud,
 																						gridLevel,
 																						-1,
-																						&pDlg);
+																						NULL);
 		}
 
 		if (result < 0)
@@ -280,7 +276,7 @@ bool ccRegistrationTools::ICP(	ccHObject* data,
 													transform,
 													finalRMS,
 													finalPointCount,
-													static_cast<CCLib::GenericProgressCallback*>(&pDlg));
+													NULL);
 
 	if (result >= CCLib::ICPRegistrationTools::ICP_ERROR)
 	{
