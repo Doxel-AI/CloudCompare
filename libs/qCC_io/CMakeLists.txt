@@ -11,6 +11,10 @@ include_directories( ${CMAKE_CURRENT_BINARY_DIR} )
 
 project( QCC_IO_LIB )
 
+
+cmake_policy(SET CMP0071 NEW)
+
+
 file( GLOB header_list *.h)
 file( GLOB source_list *.cpp *.c)
 file( GLOB ui_list ui_templates/*.ui )

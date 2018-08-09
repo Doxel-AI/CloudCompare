@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-option( INSTALL_QPCL_PLUGIN "Check to install qPCL plugin" OFF )
+option( INSTALL_QPCL_PLUGIN "Check to install qPCL plugin" ON )
 
 # CloudCompare 'PCL' bridge plugin
 if (INSTALL_QPCL_PLUGIN)

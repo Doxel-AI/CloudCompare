@@ -7,6 +7,10 @@ project( CloudCompareProjects )
 include( cmake/CMakePolicies.cmake )
 include( cmake/CMakeSetCompilerOptions.cmake )
 
+
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} ${CC_MAC_DEV_PATHS})
+
+
 # Default debug suffix for libraries.
 set( CMAKE_DEBUG_POSTFIX "d" )
 

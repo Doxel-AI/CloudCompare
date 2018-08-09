@@ -6,15 +6,18 @@ FRAMEWORK_DIR=$1
 
 # This is specific to my (Andy's) build setup because I install all my homebrew stuff here.
 # If you are trying to package things yourself for general deployment, you'll have to change this path.
-HOMEBREW_PATH_PREFIX=${HOME}/dev
-
+#HOMEBREW_PATH_PREFIX=${HOME}/dev
+HOMEBREW_PATH_PREFIX="/usr/local"
 if [ -f "${FRAMEWORK_DIR}/libCGAL_Core.13.dylib" ]; then
    echo "  fixing: ${FRAMEWORK_DIR}/libCGAL_Core.13.dylib"
    install_name_tool -change "${HOMEBREW_PATH_PREFIX}/lib/libCGAL.13.dylib" "@executable_path/../Frameworks/libCGAL.13.dylib" "${FRAMEWORK_DIR}/libCGAL_Core.13.dylib"
 fi
 
+echo "FRAMEWORK_DIR: ${FRAMEWORK_DIR}"
+echo "@loader_path: @loader_path"
 echo "  fixing: ${FRAMEWORK_DIR}/libboost_chrono-mt.dylib"
-install_name_tool -change "@loader_path/libboost_system-mt.dylib" "@executable_path/../Frameworks/libboost_system-mt.dylib" "${FRAMEWORK_DIR}/libboost_chrono-mt.dylib"
+#install_name_tool -change "@loader_path/libboost_system-mt.dylib" "@executable_path/../Frameworks/libboost_system-mt.dylib" "${FRAMEWORK_DIR}/libboost_chrono-mt.dylib"
+install_name_tool -change "${HOMEBREW_PATH_PREFIX}/lib/libboost_system-mt.dylib" "@executable_path/../Frameworks/libboost_system-mt.dylib" "${FRAMEWORK_DIR}/libboost_system-mt.dylib"
 
 echo "  fixing: ${FRAMEWORK_DIR}/libboost_thread-mt.dylib"
 install_name_tool -change "@loader_path/libboost_system-mt.dylib" "@executable_path/../Frameworks/libboost_system-mt.dylib" "${FRAMEWORK_DIR}/libboost_thread-mt.dylib"
