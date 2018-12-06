@@ -69,11 +69,6 @@ endif()
 
 
 
-add_executable(testtt
-	reg.cpp
-)
-
-message("Making a new executable")
 
 
 

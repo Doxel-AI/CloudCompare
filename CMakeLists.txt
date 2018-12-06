@@ -99,14 +99,14 @@ add_subdirectory( libs/qCC_glWindow ) # must always be included after qCC_db (de
 add_subdirectory( libs/qcustomplot )
 
 # load plugins (potentially used by qCC and ccViewer)
-add_subdirectory( plugins )
+# add_subdirectory( plugins )
 
 # qCC
 add_subdirectory( qCC )
 
 # CCViewer
-if( ${OPTION_BUILD_CCVIEWER} )
-	add_subdirectory( ccViewer )
-endif()
+# if( ${OPTION_BUILD_CCVIEWER} )
+# 	add_subdirectory( ccViewer )
+# endif()
 
 cmake_policy(POP)

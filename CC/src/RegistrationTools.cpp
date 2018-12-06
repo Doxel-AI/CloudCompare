@@ -39,7 +39,8 @@
 
 using namespace CCLib;
 
-void RegistrationTools::FilterTransformation(	const ScaledTransformation& inTrans,
+void RegistrationTools::FilterTransformation(	const 
+ScaledTransformation& inTrans,
 												int filters,
 												ScaledTransformation& outTrans )
 {
