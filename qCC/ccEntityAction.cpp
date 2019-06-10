@@ -36,6 +36,7 @@
 #include "ccPointCloud.h"
 #include "ccPolyline.h"
 #include "ccPointCloudInterpolator.h"
+#include "ccSensor.h"
 
 //qCC_gl
 #include "ccGuiParameters.h"
@@ -937,17 +938,17 @@ namespace ccEntityAction
 		Q_ASSERT(s_randomColorsNumber > 1);
 		
 		ColorsTableType* randomColors = new ColorsTableType;
-		if (!randomColors->reserve(static_cast<unsigned>(s_randomColorsNumber)))
+		if (!randomColors->reserveSafe(static_cast<unsigned>(s_randomColorsNumber)))
 		{
 			ccConsole::Error("Not enough memory!");
 			return false;
 		}
 		
 		//generate random colors
-		for (int i=0; i<s_randomColorsNumber; ++i)
+		for (int i = 0; i < s_randomColorsNumber; ++i)
 		{
 			ccColor::Rgb col = ccColor::Generator::Random();
-			randomColors->addElement(col.rgb);
+			randomColors->addElement(col);
 		}
 		
 		//apply random colors
@@ -1266,7 +1267,7 @@ namespace ccEntityAction
 			unsigned count = cloud->size();
 			for (ccScalarField*& sf : fields)
 			{
-				if (sf && !sf->reserve(count))
+				if (sf && !sf->reserveSafe(count))
 				{
 					ccLog::Warning(QString("[sfFromColor] Not enough memory to instantiate SF '%1' on cloud '%2'").arg(sf->getName(), cloud->getName()));
 					sf->release();
@@ -1277,16 +1278,16 @@ namespace ccEntityAction
 			//export points
 			for (unsigned j = 0; j < cloud->size(); ++j)
 			{
-				const ColorCompType* rgb = cloud->getPointColor(j);
+				const ccColor::Rgb& rgb = cloud->getPointColor(j);
 				
 				if (fields[0])
-					fields[0]->addElement(rgb[0]);
+					fields[0]->addElement(rgb.r);
 				if (fields[1])
-					fields[1]->addElement(rgb[1]);
+					fields[1]->addElement(rgb.g);
 				if (fields[2])
-					fields[2]->addElement(rgb[2]);
+					fields[2]->addElement(rgb.b);
 				if (fields[3])
-					fields[3]->addElement(static_cast<ScalarType>(rgb[0] + rgb[1] + rgb[2])/3);
+					fields[3]->addElement(static_cast<ScalarType>(rgb.r + rgb.g + rgb.b) / 3);
 			}
 			
 			QString fieldsStr;
@@ -1387,7 +1388,8 @@ namespace ccEntityAction
 		
 		//look for clouds and meshes
 		std::vector<ccPointCloud*> clouds;
-		size_t cloudsWithScanGrids = 0;
+		bool withScanGrid = false;
+		bool withSensor = false;
 		std::vector<ccMesh*> meshes;
 		PointCoordinateType defaultRadius = 0;
 		try
@@ -1400,9 +1402,17 @@ namespace ccEntityAction
 					ccPointCloud* cloud = static_cast<ccPointCloud*>(entity);
 					clouds.push_back(cloud);
 					
-					if (cloud->gridCount() != 0)
-						++cloudsWithScanGrids;
-					
+					if (cloud->gridCount() > 0)
+					{
+						withScanGrid = true;
+					}
+					for (unsigned i = 0; i < cloud->getChildrenNumber(); ++i)
+					{
+						if (cloud->hasSensor()){
+							withSensor = true;
+						}
+					}
+
 					if (defaultRadius == 0)
 					{
 						//default radius
@@ -1433,27 +1443,13 @@ namespace ccEntityAction
 		//compute normals for each selected cloud
 		if (!clouds.empty())
 		{
-			ccNormalComputationDlg::SelectionMode selectionMode = ccNormalComputationDlg::WITHOUT_SCAN_GRIDS;
-			if (cloudsWithScanGrids)
-			{
-				if (clouds.size() == cloudsWithScanGrids)
-				{
-					//all clouds have an associated grid
-					selectionMode = ccNormalComputationDlg::WITH_SCAN_GRIDS;
-				}
-				else
-				{
-					//only a part of the clouds have an associated grid
-					selectionMode = ccNormalComputationDlg::MIXED;
-				}
-			}
-			
+
 			static CC_LOCAL_MODEL_TYPES s_lastModelType = LS;
 			static ccNormalVectors::Orientation s_lastNormalOrientation = ccNormalVectors::UNDEFINED;
 			static int s_lastMSTNeighborCount = 6;
 			static double s_lastMinGridAngle_deg = 1.0;
 			
-			ccNormalComputationDlg ncDlg(selectionMode, parent);
+			ccNormalComputationDlg ncDlg(withScanGrid, withSensor, parent);
 			ncDlg.setLocalModel(s_lastModelType);
 			ncDlg.setRadius(defaultRadius);
 			ncDlg.setPreferredOrientation(s_lastNormalOrientation);
@@ -1469,13 +1465,14 @@ namespace ccEntityAction
 			
 			//normals computation
 			CC_LOCAL_MODEL_TYPES model = s_lastModelType = ncDlg.getLocalModel();
-			bool useGridStructure = cloudsWithScanGrids && ncDlg.useScanGridsForComputation();
+			bool useGridStructure = withScanGrid && ncDlg.useScanGridsForComputation();
 			defaultRadius = ncDlg.getRadius();
 			double minGridAngle_deg = s_lastMinGridAngle_deg = ncDlg.getMinGridAngle_deg();
 			
 			//normals orientation
 			bool orientNormals = ncDlg.orientNormals();
-			bool orientNormalsWithGrids = cloudsWithScanGrids && ncDlg.useScanGridsForOrientation();
+			bool orientNormalsWithGrids = withScanGrid && ncDlg.useScanGridsForOrientation();
+			bool orientNormalsWithSensors = withSensor && ncDlg.useSensorsForOrientation();
 			ccNormalVectors::Orientation preferredOrientation = s_lastNormalOrientation = ncDlg.getPreferredOrientation();
 			bool orientNormalsMST = ncDlg.useMSTOrientation();
 			int mstNeighbors = s_lastMSTNeighborCount = ncDlg.getMSTNeighborCount();
@@ -1506,7 +1503,7 @@ namespace ccEntityAction
 						}
 						ccGLMatrixd toSensor = scanGrid->sensorPosition.inverse();
 						
-						const int* _indexGrid = &(scanGrid->indexes[0]);
+						const int* _indexGrid = scanGrid->indexes.data();
 						for (int j = 0; j < static_cast<int>(scanGrid->h); ++j)
 						{
 							for (int i = 0; i < static_cast<int>(scanGrid->w); ++i, ++_indexGrid)
@@ -1543,6 +1540,31 @@ namespace ccEntityAction
 					{
 						//we can still use the grid structure(s) to orient the normals!
 						result = cloud->orientNormalsWithGrids();
+					}
+					else if (cloud->hasSensor() && orientNormalsWithSensors)
+					{
+						result = false;
+
+						// RJ: TODO: the issue here is that a cloud can have multiple sensors.
+						// As the association to sensor is not explicit in CC, given a cloud
+						// some points can belong to one sensor and some others can belongs to others sensors.
+						// so it's why here grid orientation has precedence over sensor orientation because in this
+						// case association is more explicit.
+						// Here we take the first valid viewpoint for now even if it's not a really good...
+						CCVector3 sensorPosition;
+						for (size_t i = 0; i < cloud->getChildrenNumber(); ++i)
+						{
+							ccHObject* child = cloud->getChild(static_cast<unsigned>(i));
+							if (child && child->isKindOf(CC_TYPES::SENSOR))
+							{
+								ccSensor* sensor = ccHObjectCaster::ToSensor(child);
+								if (sensor->getActiveAbsoluteCenter(sensorPosition))
+								{
+									result = cloud->orientNormalsTowardViewPoint(sensorPosition, &pDlg);
+									break;
+								}
+							}
+						}
 					}
 					else if (orientNormalsMST)
 					{
@@ -2234,7 +2256,7 @@ namespace ccEntityAction
 				continue;
 			}
 			
-			Q_ASSERT(inSF->isAllocated());
+			Q_ASSERT(inSF->capacity() != 0);
 			
 			//force SF as 'OUT' field (in case of)
 			const int outSfIdx = pc->getCurrentDisplayedScalarFieldIndex();
@@ -2341,7 +2363,7 @@ namespace ccEntityAction
 				continue;
 			}
 			
-			Q_ASSERT(sf->isAllocated());
+			Q_ASSERT(sf->capacity() != 0);
 			
 			//force SF as 'OUT' field (in case of)
 			const int outSfIdx = pc->getCurrentDisplayedScalarFieldIndex();
@@ -2396,7 +2418,7 @@ namespace ccEntityAction
 				//compute the Chi2 distance
 				{
 					unsigned finalNumberOfClasses = 0;
-					const double chi2dist = CCLib::StatisticalTestingTools::computeAdaptativeChi2Dist(distrib, pc, 0, finalNumberOfClasses, false, 0, 0, &(histo[0]), &(npis[0]));
+					const double chi2dist = CCLib::StatisticalTestingTools::computeAdaptativeChi2Dist(distrib, pc, 0, finalNumberOfClasses, false, 0, 0, histo.data(), npis.data());
 
 					if (chi2dist >= 0.0)
 					{

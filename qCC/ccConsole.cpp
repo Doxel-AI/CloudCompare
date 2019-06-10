@@ -60,9 +60,9 @@ ccConsole* ccConsole::TheInstance(bool autoInit/*=true*/)
 	return s_console.instance;
 }
 
-void ccConsole::ReleaseInstance()
+void ccConsole::ReleaseInstance(bool flush/*=true*/)
 {
-	if (s_console.instance)
+	if (flush && s_console.instance)
 	{
 		//DGM: just in case some messages are still in the queue
 		s_console.instance->refresh();
@@ -197,13 +197,13 @@ void ccConsole::setAutoRefresh(bool state)
 {
 	if (state)
 	{
-		QObject::connect(&m_timer, SIGNAL(timeout()), this, SLOT(refresh()));
+		connect(&m_timer, &QTimer::timeout, this, &ccConsole::refresh);
 		m_timer.start(1000);
 	}
 	else
 	{
 		m_timer.stop();
-		QObject::disconnect(&m_timer, SIGNAL(timeout()), this, SLOT(refresh()));
+		disconnect(&m_timer, &QTimer::timeout, this, &ccConsole::refresh);
 	}
 }
 

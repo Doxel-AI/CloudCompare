@@ -27,6 +27,9 @@
 //Qt
 #include <QString>
 
+//STL
+#include <vector>
+
 class ccHObject;
 
 //! Helper class to handle big coordinates shift/scale (typically while loading entities)
@@ -43,6 +46,7 @@ public:
 						Mode mode,
 						bool useInputCoordinatesShiftIfPossible,
 						CCVector3d& coordinatesShift,
+						bool* preserveCoordinateShift,
 						double* coordinatesScale,
 						bool* applyAll = 0);
 
@@ -68,6 +72,9 @@ public:
 	//! Sets the max bounding-box diagonal
 	static void SetMaxBoundgBoxDiagonal(double value) { MAX_DIAGONAL_LENGTH = value; }
 
+	//! Adds a new shift / scale couple
+	static void StoreShift(const CCVector3d& shift, double scale, bool preserve = true);
+
 public: //Shift and scale info
 
 	//! Shift and scale info
@@ -76,14 +83,16 @@ public: //Shift and scale info
 		CCVector3d shift;
 		double scale;
 		QString name;
+		bool preserve;
 
 		//! Default constructor
-		ShiftInfo(QString str = QString("unnamed")) : shift(0, 0, 0), scale(1.0), name(str) {}
+		ShiftInfo(QString str = QString("unnamed")) : shift(0, 0, 0), scale(1.0), name(str), preserve(true) {}
 		//! Constructor from a vector and a scale value
-		ShiftInfo(QString str, const CCVector3d& T, double s = 1.0) : shift(T), scale(s), name(str) {}
+		ShiftInfo(QString str, const CCVector3d& T, double s = 1.0) : shift(T), scale(s), name(str), preserve(true) {}
 	};
 
 	static bool GetLast(ShiftInfo& info);
+	static bool GetLast(std::vector<ShiftInfo>& infos);
 
 protected:
 	

@@ -16,21 +16,22 @@
 //#                                                                        #
 //##########################################################################
 
-#include "CloudSamplingTools.h"
+#include <CloudSamplingTools.h>
 
 //local
-#include "SimpleCloud.h"
-#include "ReferenceCloud.h"
-#include "Neighbourhood.h"
-#include "SimpleMesh.h"
-#include "GenericProgressCallback.h"
-#include "DgmOctreeReferenceCloud.h"
-#include "DistanceComputationTools.h"
-#include "ScalarField.h"
-#include "ScalarFieldTools.h"
+#include <DgmOctreeReferenceCloud.h>
+#include <DistanceComputationTools.h>
+#include <GenericProgressCallback.h>
+#include <Neighbourhood.h>
+#include <ReferenceCloud.h>
+#include <ScalarField.h>
+#include <ScalarFieldTools.h>
+#include <PointCloud.h>
+#include <SimpleMesh.h>
 
 //system
 #include <random>
+#include <algorithm>
 
 using namespace CCLib;
 
@@ -47,7 +48,7 @@ GenericIndexedCloud* CloudSamplingTools::resampleCloudWithOctree(	GenericIndexed
 	{
 		octree = new DgmOctree(inputCloud);
 		if (octree->build(progressCb) < 1)
-			return 0;
+			return nullptr;
 	}
 
 	//look for the Octree level that gives the number of cells (= points) closest to the desired value
@@ -61,7 +62,7 @@ GenericIndexedCloud* CloudSamplingTools::resampleCloudWithOctree(	GenericIndexed
 	return sampledCloud;
 }
 
-SimpleCloud* CloudSamplingTools::resampleCloudWithOctreeAtLevel(GenericIndexedCloudPersist* inputCloud,
+PointCloud* CloudSamplingTools::resampleCloudWithOctreeAtLevel(GenericIndexedCloudPersist* inputCloud,
 																unsigned char octreeLevel,
 																RESAMPLING_CELL_METHOD resamplingMethod,
 																GenericProgressCallback* progressCb/*=0*/,
@@ -76,11 +77,11 @@ SimpleCloud* CloudSamplingTools::resampleCloudWithOctreeAtLevel(GenericIndexedCl
 		if (octree->build(progressCb) < 1)
 		{
 			delete octree;
-			return 0;
+			return nullptr;
 		}
 	}
 
-	SimpleCloud* cloud = new SimpleCloud();
+	PointCloud* cloud = new PointCloud();
 
 	unsigned nCells = octree->getCellNumber(octreeLevel);
 	if (!cloud->reserve(nCells))
@@ -88,7 +89,7 @@ SimpleCloud* CloudSamplingTools::resampleCloudWithOctreeAtLevel(GenericIndexedCl
 		if (!inputOctree)
 			delete octree;
 		delete cloud;
-		return 0;
+		return nullptr;
 	}
 
 	//structure contenant les parametres additionnels
@@ -104,7 +105,7 @@ SimpleCloud* CloudSamplingTools::resampleCloudWithOctreeAtLevel(GenericIndexedCl
 	{
 		//something went wrong
 		delete cloud;
-		cloud=0;
+		cloud = nullptr;
 
 	}
 
@@ -127,7 +128,7 @@ ReferenceCloud* CloudSamplingTools::subsampleCloudWithOctree(	GenericIndexedClou
 	{
 		octree = new DgmOctree(inputCloud);
 		if (octree->build(progressCb) < 1)
-			return 0;
+			return nullptr;
 	}
 
 	//on cherche le niveau qui donne le nombre de points le plus proche de la consigne
@@ -156,7 +157,7 @@ ReferenceCloud* CloudSamplingTools::subsampleCloudWithOctreeAtLevel(GenericIndex
 		if (octree->build(progressCb) < 1)
 		{
 			delete octree;
-			return 0;
+			return nullptr;
 		}
 	}
 
@@ -168,7 +169,7 @@ ReferenceCloud* CloudSamplingTools::subsampleCloudWithOctreeAtLevel(GenericIndex
 		if (!inputOctree)
 			delete octree;
 		delete cloud;
-		return 0;
+		return nullptr;
 	}
 
 	//structure contenant les parametres additionnels
@@ -184,7 +185,7 @@ ReferenceCloud* CloudSamplingTools::subsampleCloudWithOctreeAtLevel(GenericIndex
 	{
 		//something went wrong
 		delete cloud;
-		cloud=0;
+		cloud = nullptr;
 	}
 
 	if (!inputOctree)
@@ -204,7 +205,7 @@ ReferenceCloud* CloudSamplingTools::subsampleCloudRandomly(GenericIndexedCloudPe
 	if (!newCloud->addPointIndex(0,theCloudSize))
 	{
 		delete newCloud;
-		return 0;
+		return nullptr;
 	}
 
 	//we have less points than requested?!
@@ -241,7 +242,7 @@ ReferenceCloud* CloudSamplingTools::subsampleCloudRandomly(GenericIndexedCloudPe
 		{
 			//cancel process
 			delete newCloud;
-			return 0;
+			return nullptr;
 		}
 	}
 
@@ -266,7 +267,7 @@ ReferenceCloud* CloudSamplingTools::resampleCloudSpatially(GenericIndexedCloudPe
 		if (octree->build() < static_cast<int>(cloudSize))
 		{
 			delete octree;
-			return 0;
+			return nullptr;
 		}
 	}
 	assert(octree && octree->associatedCloud() == inputCloud);
@@ -278,17 +279,20 @@ ReferenceCloud* CloudSamplingTools::resampleCloudSpatially(GenericIndexedCloudPe
 	{
 		if (!inputOctree)
 			delete octree;
-		return 0;
+		return nullptr;
 	}
 
-	GenericChunkedArray<1, char>* markers = new GenericChunkedArray<1, char>(); //DGM: upgraded from vector, as this can be quite huge!
-	if (!markers->resize(cloudSize, true, 1)) //true by default
+	std::vector<char> markers; //DGM: upgraded from vector, as this can be quite huge!
+	try
 	{
-		markers->release();
+		markers.resize(cloudSize, 1); //true by default
+	}
+	catch (const std::bad_alloc&)
+	{
 		if (!inputOctree)
 			delete octree;
 		delete sampledCloud;
-		return 0;
+		return nullptr;
 	}
 
 	//best octree level (there may be several of them if we use parameter modulation)
@@ -319,10 +323,10 @@ ReferenceCloud* CloudSamplingTools::resampleCloudSpatially(GenericIndexedCloudPe
 				if (level1 != level0)
 				{
 					//add intermediate levels if necessary
-					size_t levelCount = (level1 < level0 ? level0 - level1 : level1 - level0) + 1;
+					std::size_t levelCount = (level1 < level0 ? level0 - level1 : level1 - level0) + 1;
 					assert(levelCount != 0);
 
-					for (size_t i = 1; i < levelCount - 1; ++i) //we already know level0 and level1!
+					for (std::size_t i = 1; i < levelCount - 1; ++i) //we already know level0 and level1!
 					{
 						ScalarType sfVal = sfMin + i*((sfMax - sfMin) / levelCount);
 						PointCoordinateType dist = static_cast<PointCoordinateType>(sfVal * modParams.a + modParams.b);
@@ -342,13 +346,12 @@ ReferenceCloud* CloudSamplingTools::resampleCloudSpatially(GenericIndexedCloudPe
 	catch (const std::bad_alloc&)
 	{
 		//not enough memory
-		markers->release();
 		if (!inputOctree)
 		{
 			delete octree;
 		}
 		delete sampledCloud;
-		return 0;
+		return nullptr;
 	}
 
 	//progress notification
@@ -368,17 +371,16 @@ ReferenceCloud* CloudSamplingTools::resampleCloudSpatially(GenericIndexedCloudPe
 
 	//for each point in the cloud that is still 'marked', we look
 	//for its neighbors and remove their own marks
-	markers->placeIteratorAtBeginning();
 	bool error = false;
 	//default octree level
 	assert(!bestOctreeLevel.empty());
 	unsigned char octreeLevel = bestOctreeLevel.front();
 	//default distance between points
 	PointCoordinateType minDistBetweenPoints = minDistance;
-	for (unsigned i = 0; i < cloudSize; i++, markers->forwardIterator())
+	for (unsigned i = 0; i < cloudSize; i++)
 	{
 		//no mark? we skip this point
-		if (markers->getCurrentValue() != 0)
+		if (markers[i] != 0)
 		{
 			//init neighbor search structure
 			const CCVector3* P = inputCloud->getPoint(i);
@@ -392,7 +394,7 @@ ReferenceCloud* CloudSamplingTools::resampleCloudSpatially(GenericIndexedCloudPe
 					//modulate minDistance
 					minDistBetweenPoints = static_cast<PointCoordinateType>(sfVal * modParams.a + modParams.b);
 					//get (approximate) best level
-					size_t levelIndex = static_cast<size_t>(bestOctreeLevel.size() * ((sfVal - sfMin) / (sfMax - sfMin)));
+					std::size_t levelIndex = static_cast<std::size_t>(bestOctreeLevel.size() * ((sfVal - sfMin) / (sfMax - sfMin)));
 					if (levelIndex == bestOctreeLevel.size())
 						--levelIndex;
 					octreeLevel = bestOctreeLevel[levelIndex];
@@ -410,7 +412,7 @@ ReferenceCloud* CloudSamplingTools::resampleCloudSpatially(GenericIndexedCloudPe
 				octree->getPointsInSphericalNeighbourhood(*P, minDistBetweenPoints, neighbours, octreeLevel);
 				for (DgmOctree::NeighboursSet::iterator it = neighbours.begin(); it != neighbours.end(); ++it)
 					if (it->pointIndex != i)
-						markers->setValue(it->pointIndex, 0);
+						markers[it->pointIndex] = 0;
 			}
 
 			//At this stage, the ith point is the only one marked in a radius of <minDistance>.
@@ -447,7 +449,7 @@ ReferenceCloud* CloudSamplingTools::resampleCloudSpatially(GenericIndexedCloudPe
 	else
 	{
 		delete sampledCloud;
-		sampledCloud = 0;
+		sampledCloud = nullptr;
 	}
 
 	if (progressCb)
@@ -459,11 +461,8 @@ ReferenceCloud* CloudSamplingTools::resampleCloudSpatially(GenericIndexedCloudPe
 	{
 		//locally computed octree
 		delete octree;
-		octree = 0;
+		octree = nullptr;
 	}
-
-	markers->release();
-	markers = 0;
 
 	return sampledCloud;
 }
@@ -478,7 +477,7 @@ ReferenceCloud* CloudSamplingTools::sorFilter(	GenericIndexedCloudPersist* input
 	{
 		//invalid input
 		assert(false);
-		return 0;
+		return nullptr;
 	}
 
 	DgmOctree* octree = inputOctree;
@@ -489,12 +488,12 @@ ReferenceCloud* CloudSamplingTools::sorFilter(	GenericIndexedCloudPersist* input
 		if (octree->build(progressCb) < 1)
 		{
 			delete octree;
-			return 0;
+			return nullptr;
 		}
 	}
 
 	//output
-	ReferenceCloud* filteredCloud = 0;
+	ReferenceCloud* filteredCloud = nullptr;
 
 	for (unsigned step = 0; step < 1; ++step) //fake loop for easy break
 	{
@@ -554,7 +553,7 @@ ReferenceCloud* CloudSamplingTools::sorFilter(	GenericIndexedCloudPersist* input
 			{
 				//not enough memory
 				delete filteredCloud;
-				filteredCloud = 0;
+				filteredCloud = nullptr;
 				break;
 			}
 
@@ -594,7 +593,7 @@ ReferenceCloud* CloudSamplingTools::noiseFilter(GenericIndexedCloudPersist* inpu
 	{
 		//invalid input
 		assert(false);
-		return 0;
+		return nullptr;
 	}
 
 	DgmOctree* octree = inputOctree;
@@ -604,7 +603,7 @@ ReferenceCloud* CloudSamplingTools::noiseFilter(GenericIndexedCloudPersist* inpu
 		if (octree->build(progressCb) < 1)
 		{
 			delete octree;
-			return 0;
+			return nullptr;
 		}
 	}
 
@@ -617,7 +616,7 @@ ReferenceCloud* CloudSamplingTools::noiseFilter(GenericIndexedCloudPersist* inpu
 		if (!inputOctree)
 			delete octree;
 		delete filteredCloud;
-		return 0;
+		return nullptr;
 	}
 
 	//additional parameters
@@ -646,13 +645,13 @@ ReferenceCloud* CloudSamplingTools::noiseFilter(GenericIndexedCloudPersist* inpu
 	{
 		//something went wrong
 		delete filteredCloud;
-		filteredCloud = 0;
+		filteredCloud = nullptr;
 	}
 
 	if (!inputOctree)
 	{
 		delete octree;
-		octree = 0;
+		octree = nullptr;
 	}
 
 	if (filteredCloud)
@@ -667,7 +666,7 @@ bool CloudSamplingTools::resampleCellAtLevel(	const DgmOctree::octreeCell& cell,
 												void** additionalParameters,
 												NormalizedProgress* nProgress/*=0*/)
 {
-	SimpleCloud* cloud						= static_cast<SimpleCloud*>(additionalParameters[0]);
+	PointCloud* cloud						= static_cast<PointCloud*>(additionalParameters[0]);
 	RESAMPLING_CELL_METHOD resamplingMethod	= *static_cast<RESAMPLING_CELL_METHOD*>(additionalParameters[1]);
 
 	if (resamplingMethod == CELL_GRAVITY_CENTER)

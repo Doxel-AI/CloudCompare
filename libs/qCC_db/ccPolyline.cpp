@@ -156,7 +156,7 @@ void ccPolyline::applyGLTransformation(const ccGLMatrix& trans)
 
 	//invalidate the bounding-box
 	//(and we hope the vertices will be updated as well!)
-	m_validBB = false;
+	invalidateBoundingBox();
 }
 
 //unit arrow
@@ -684,13 +684,9 @@ ccPointCloud* ccPolyline::samplePoints(	bool densityBased,
 		}
 	}
 
-	//import parameters from the source vertices
-	ccGenericPointCloud* vertices = dynamic_cast<ccPointCloud*>(getAssociatedCloud());
-	if (vertices)
-	{
-		cloud->setGlobalShift(vertices->getGlobalShift());
-		cloud->setGlobalScale(vertices->getGlobalScale());
-	}
+	//import parameters from the source
+	cloud->setGlobalShift(getGlobalShift());
+	cloud->setGlobalScale(getGlobalScale());
 	cloud->setGLTransformationHistory(getGLTransformationHistory());
 
 	return cloud;

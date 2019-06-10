@@ -16,6 +16,7 @@
 //##########################################################################
 
 #include "DxfFilter.h"
+#include "FileIO.h"
 
 //CCLib
 #include <ScalarField.h>
@@ -34,7 +35,7 @@
 #endif
 
 //system
-#include <assert.h>
+#include <cassert>
 
 bool DxfFilter::canLoadExtension(const QString& upperCaseExt) const
 {
@@ -63,12 +64,13 @@ public:
 	//! Default constructor
 	DxfImporter(ccHObject* root, FileIOFilter::LoadParameters& parameters)
 		: m_root(root)
-		, m_points(0)
-		, m_faces(0)
-		, m_poly(0)
-		, m_polyVertices(0)
+		, m_points(nullptr)
+		, m_faces(nullptr)
+		, m_poly(nullptr)
+		, m_polyVertices(nullptr)
 		, m_firstPoint(true)
 		, m_globalShift(0, 0, 0)
+		, m_preserveCoordinateShift(false)
 		, m_loadParameters(parameters)
 	{
 		assert(m_root);
@@ -79,7 +81,7 @@ public:
 		CCVector3d P(x, y, z);
 		if (m_firstPoint)
 		{
-			if (FileIOFilter::HandleGlobalShift(P, m_globalShift, m_loadParameters))
+			if (FileIOFilter::HandleGlobalShift(P, m_globalShift, m_preserveCoordinateShift, m_loadParameters))
 			{
 				ccLog::Warning("[DXF] All points/vertices will been recentered! Translation: (%.2f ; %.2f ; %.2f)", m_globalShift.x, m_globalShift.y, m_globalShift.z);
 			}
@@ -92,10 +94,13 @@ public:
 
 	void applyGlobalShift()
 	{
-		if (m_points)
-			m_points->setGlobalShift(m_globalShift);
-		if (m_polyVertices)
-			m_polyVertices->setGlobalShift(m_globalShift);
+		if (m_preserveCoordinateShift)
+		{
+			if (m_points)
+				m_points->setGlobalShift(m_globalShift);
+			if (m_polyVertices)
+				m_polyVertices->setGlobalShift(m_globalShift);
+		}
 	}
 
 	virtual void addLayer(const DL_LayerData& data)
@@ -127,7 +132,7 @@ public:
 			if (m_points->hasColors())
 			{
 				//simply add the new color
-				m_points->addRGBColor(col.rgb);
+				m_points->addRGBColor(col);
 			}
 			else
 			{
@@ -138,13 +143,13 @@ public:
 					return;
 				}
 				m_points->showColors(true);
-				m_points->setPointColor(m_points->size() - 1, ccColor::white.rgba); //replace the last color
+				m_points->setPointColor(m_points->size() - 1, ccColor::white); //replace the last color
 			}
 		}
 		else if (m_points->hasColors())
 		{
 			//add default color if none is defined!
-			m_points->addRGBColor(ccColor::white.rgba);
+			m_points->addRGBColor(ccColor::white);
 		}
 	}
 
@@ -160,8 +165,8 @@ public:
 		{
 			ccLog::Error("[DxfImporter] Not enough memory!");
 			delete m_poly;
-			m_polyVertices = 0;
-			m_poly = 0;
+			m_polyVertices = nullptr;
+			m_poly = nullptr;
 			return;
 		}
 		m_polyVertices->setEnabled(false);
@@ -219,7 +224,10 @@ public:
 			m_faces->setVisible(true);
 			vertices->setEnabled(false);
 			//vertices->setLocked(true);  //DGM: no need to lock it as it is only used by one mesh!
-			vertices->setGlobalShift(m_globalShift);
+			if (m_preserveCoordinateShift)
+			{
+				vertices->setGlobalShift(m_globalShift);
+			}
 
 			m_root->addChild(m_faces);
 		}
@@ -239,7 +247,7 @@ public:
 
 		//current face color
 		ccColor::Rgb col;
-		ccColor::Rgb* faceCol = 0;
+		ccColor::Rgb* faceCol = nullptr;
 		if (getCurrentColour(col))
 			faceCol = &col;
 
@@ -260,9 +268,9 @@ public:
 						//We must also check that the color is the same (if any)
 						if (faceCol || vertices->hasColors())
 						{
-							const ColorCompType* _faceCol = faceCol ? faceCol->rgb : ccColor::white.rgba;
-							const ColorCompType* _vertCol = vertices->hasColors() ? vertices->getPointColor(j) : ccColor::white.rgba;
-							useCurrentVertex = (_faceCol[0] == _vertCol[0] && _faceCol[1] == _vertCol[1] && _faceCol[2] == _vertCol[2]);
+							const ccColor::Rgb* _faceCol = faceCol ? faceCol : &ccColor::white;
+							const ccColor::Rgb* _vertCol = vertices->hasColors() ? &vertices->getPointColor(j) : &ccColor::white;
+							useCurrentVertex = (_faceCol->r == _vertCol->r && _faceCol->g == _vertCol->g && _faceCol->b == _vertCol->b);
 						}
 
 						if (useCurrentVertex)
@@ -329,7 +337,7 @@ public:
 
 			//add 1 or 2 new entries
 			unsigned triNormCount = triNormsTable->currentSize();
-			if (!triNormsTable->reserve(triNormsTable->currentSize() + addTriCount))
+			if (!triNormsTable->reserveSafe(triNormsTable->currentSize() + addTriCount))
 			{
 				ccLog::Error("[DxfImporter] Not enough memory!");
 				return;
@@ -371,14 +379,14 @@ public:
 			if (vertices->hasColors())
 			{
 				for (unsigned i = 0; i < createdVertCount; ++i)
-					vertices->addRGBColor(faceCol->rgb);
+					vertices->addRGBColor(*faceCol);
 			}
 			//otherwise, reserve memory and set all previous points to white by default
 			else if (vertices->setRGBColor(ccColor::white))
 			{
 				//then replace the last color(s) by the current one
 				for (unsigned i = 0; i < createdVertCount; ++i)
-					vertices->setPointColor(vertCount - 1 - i, faceCol->rgb);
+					vertices->setPointColor(vertCount - 1 - i, *faceCol);
 				m_faces->showColors(true);
 			}
 		}
@@ -386,7 +394,7 @@ public:
 		{
 			//add default color if none is defined!
 			for (unsigned i = 0; i < createdVertCount; ++i)
-				vertices->addRGBColor(ccColor::white.rgba);
+				vertices->addRGBColor(ccColor::white);
 		}
 	}
 
@@ -410,7 +418,10 @@ public:
 		polyVertices->addPoint(convertPoint(line.x1, line.y1, line.z1));
 		//add second point
 		polyVertices->addPoint(convertPoint(line.x2, line.y2, line.z2));
-		polyVertices->setGlobalShift(m_globalShift);
+		if (m_preserveCoordinateShift)
+		{
+			polyVertices->setGlobalShift(m_globalShift);
+		}
 
 		//flags
 		poly->setClosed(false);
@@ -480,6 +491,8 @@ private:
 
 	//! Global shift
 	CCVector3d m_globalShift;
+	//! Whether to preserve the global shift info or not
+	bool m_preserveCoordinateShift;
 
 	//! Load parameters
 	FileIOFilter::LoadParameters m_loadParameters;
@@ -613,6 +626,9 @@ CC_FILE_ERROR DxfFilter::saveToFile(ccHObject* root, const QString& filename, co
 
 	try
 	{
+		dxf.writeComment(*dw, FileIO::createdBy().toStdString() );
+		dxf.writeComment(*dw, FileIO::createdDateTime().toStdString() );
+
 		//write header
 		dxf.writeHeader(*dw);
 
@@ -861,7 +877,7 @@ CC_FILE_ERROR DxfFilter::saveToFile(ccHObject* root, const QString& filename, co
 	}
 
 	delete dw;
-	dw = 0;
+	dw = nullptr;
 
 	return result;
 

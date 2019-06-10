@@ -37,6 +37,9 @@ public:
 	**/
 	ccShiftAndScaleCloudDlg(const CCVector3d& Pl, double Dl, const CCVector3d& Pg, double Dg, QWidget* parent = 0);
 
+	//! Sets the Shift fields (X, Y and Z) precision (default should be 2)
+	void setShiftFieldsPrecision(int precision);
+
 	//! Destructor
 	virtual ~ccShiftAndScaleCloudDlg();
 
@@ -72,17 +75,29 @@ public:
 
 	//! Whether to show or not the 'Keep global position' checkbox
 	void showKeepGlobalPosCheckbox(bool state);
-
 	//! Returns whether the global position should be preserved or not
 	bool keepGlobalPos() const;
 	//! Sets whether the global position should be preserved or not
 	void setKeepGlobalPos(bool state);
+	
+	//! Whether to show or not the 'Preserve shift on save' checkbox
+	void showPreserveShiftOnSave(bool state);
+	//! Returns whether the global shift should be preserved or not
+	bool preserveShiftOnSave() const;
+	//! Sets whether the global shift should be preserved or not
+	void setPreserveShiftOnSave(bool state);
 
 	//! Adds shift info to the combox
 	/** \param info shift info
 		\return index in combo-box
 	**/
 	int addShiftInfo(const ccGlobalShiftManager::ShiftInfo& info);
+
+	//! Adds shift info to the combox
+	/** \param info shift info
+		\return index in combo-box
+	**/
+	int addShiftInfo(const std::vector<ccGlobalShiftManager::ShiftInfo>& info);
 
 	//! Returns a given input info
 	bool getInfo(size_t index, ccGlobalShiftManager::ShiftInfo& info) const;

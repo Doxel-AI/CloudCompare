@@ -18,7 +18,7 @@
 #include "ccIndexedTransformationBuffer.h"
 
 //CCLib
-#include <SortAlgo.h>
+#include <ParallelSort.h>
 
 ccIndexedTransformationBuffer::ccIndexedTransformationBuffer(QString name)
 	: ccHObject(name)
@@ -60,7 +60,7 @@ static bool IndexCompOperator(const ccIndexedTransformation& a, double index)
 
 void ccIndexedTransformationBuffer::sort()
 {
-	SortAlgo(begin(), end(), IndexedSortOperator);
+	ParallelSort(begin(), end(), IndexedSortOperator);
 }
 
 bool ccIndexedTransformationBuffer::findNearest(double index,
@@ -299,7 +299,7 @@ void ccIndexedTransformationBuffer::drawMeOnly(CC_DRAW_CONTEXT& context)
 
 	//show path
 	{
-		ccGL::Color3v(glFunc, ccColor::green.rgba);
+		ccGL::Color3v(glFunc, ccColor::green.rgb);
 		glFunc->glBegin(count > 1 && m_showAsPolyline ? GL_LINE_STRIP : GL_POINTS); //show path as a polyline or points?
 		for (ccIndexedTransformationBuffer::const_iterator it=begin(); it!=end(); ++it)
 			glFunc->glVertex3fv(it->getTranslation());

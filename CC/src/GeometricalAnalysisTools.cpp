@@ -16,18 +16,19 @@
 //#                                                                        #
 //##########################################################################
 
-#include "GeometricalAnalysisTools.h"
+#include <GeometricalAnalysisTools.h>
 
 //local
-#include "ReferenceCloud.h"
-#include "GenericProgressCallback.h"
-#include "DistanceComputationTools.h"
-#include "DgmOctreeReferenceCloud.h"
-#include "ScalarField.h"
-#include "ScalarFieldTools.h"
+#include <DgmOctreeReferenceCloud.h>
+#include <DistanceComputationTools.h>
+#include <GenericProgressCallback.h>
+#include <ReferenceCloud.h>
+#include <ScalarField.h>
+#include <ScalarFieldTools.h>
 
 //system
 #include <random>
+#include <algorithm>
 
 using namespace CCLib;
 
@@ -636,7 +637,7 @@ CCVector3 GeometricalAnalysisTools::computeGravityCenter(GenericCloud* theCloud)
 	CCVector3d sum(0,0,0);
 
 	theCloud->placeIteratorAtBeginning();
-	const CCVector3 *P = 0;
+	const CCVector3 *P = nullptr;
 	while ((P = theCloud->getNextPoint()))
 	{
 		sum += CCVector3d::fromArray(P->u);
@@ -700,7 +701,7 @@ CCLib::SquareMatrixd GeometricalAnalysisTools::computeCovarianceMatrix(GenericCl
 	{
 		const CCVector3* Q = theCloud->getNextPoint();
 
-		CCVector3 P = *Q-G;
+		CCVector3 P = *Q - G;
 		mXX += static_cast<double>(P.x*P.x);
 		mYY += static_cast<double>(P.y*P.y);
 		mZZ += static_cast<double>(P.z*P.z);

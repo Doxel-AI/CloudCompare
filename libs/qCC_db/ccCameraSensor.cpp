@@ -1509,21 +1509,21 @@ void ccCameraSensor::drawMeOnly(CC_DRAW_CONTEXT& context)
 		float l = static_cast<float>(fabs(upperLeftPoint.z)/2);
 
 		// right vector
-		ccGL::Color3v(glFunc, ccColor::red.rgba);
+		ccGL::Color3v(glFunc, ccColor::red.rgb);
 		glFunc->glBegin(GL_LINES);
 		glFunc->glVertex3f(0.0f, 0.0f, 0.0f);
 		glFunc->glVertex3f(l, 0.0f, 0.0f);
 		glFunc->glEnd();
 
 		// up vector
-		ccGL::Color3v(glFunc, ccColor::green.rgba);
+		ccGL::Color3v(glFunc, ccColor::green.rgb);
 		glFunc->glBegin(GL_LINES);
 		glFunc->glVertex3f(0.0f, 0.0f, 0.0f);
 		glFunc->glVertex3f(0.0f, l, 0.0f);
 		glFunc->glEnd();
 
 		// view vector
-		ccGL::Color3v(glFunc, ccColor::blue.rgba);
+		ccGL::Color3v(glFunc, ccColor::blue.rgb);
 		glFunc->glBegin(GL_LINES);
 		glFunc->glVertex3f(0.0f, 0.0f, 0.0f);
 		glFunc->glVertex3f(0.0f, 0.0f, -l);
@@ -2266,7 +2266,7 @@ bool ccCameraSensor::OrthoRectifyAsImages(	std::vector<ccImage*> images,
 		{
 			double xShift = (minC[0]-minCorners[0])/pixelSize;
 			double yShift = (minC[1]-minCorners[1])/pixelSize;
-			relativePos->push_back(std::pair<double,double>(xShift,yShift));
+			relativePos->emplace_back(xShift, yShift);
 		}
 
 		if (outputDir)
@@ -2356,9 +2356,9 @@ ccPointCloud* ccCameraSensor::orthoRectifyAsCloud(	const ccImage* image,
 					//add point
 					proj->addPoint(P);
 					//and color
-					ColorCompType C[3] = {	static_cast<ColorCompType>(r),
-											static_cast<ColorCompType>(g),
-											static_cast<ColorCompType>(b) };
+					ccColor::Rgb C(	static_cast<ColorCompType>(r),
+									static_cast<ColorCompType>(g),
+									static_cast<ColorCompType>(b) );
 					proj->addRGBColor(C);
 					++realCount;
 				}

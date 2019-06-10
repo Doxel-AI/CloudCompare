@@ -157,7 +157,7 @@ ccHObject* ccHObject::New(CC_CLASS_ENUM objectType, const char* name/*=0*/)
 	case CC_TYPES::IMAGE:
 		return new ccImage();
 	case CC_TYPES::CALIBRATED_IMAGE:
-		return 0; //deprecated
+		return nullptr; //deprecated
 	case CC_TYPES::GBL_SENSOR:
 		//warning: default sensor type set in constructor (see CCLib::GroundBasedLidarSensor::setRotationOrder)
 		return new ccGBLSensor();
@@ -633,7 +633,7 @@ void ccHObject::drawNameIn3D(CC_DRAW_CONTEXT& context)
 		return;
 
 	//we display it in the 2D layer in fact!
-	ccBBox bBox = getOwnBB();
+	ccBBox bBox = getBB_recursive();
 	if (!bBox.isValid())
 		return;
 	
@@ -717,11 +717,13 @@ void ccHObject::draw(CC_DRAW_CONTEXT& context)
 			{
 				toggleClipPlanes(context, false);
 			}
-
-			//draw name in 3D (we display it in the 2D foreground layer in fact!)
-			if (m_showNameIn3D && MACRO_Draw2D(context) && MACRO_Foreground(context) && !MACRO_DrawEntityNames(context))
-				drawNameIn3D(context);
 		}
+	}
+
+	//draw name - container objects are not visible but can still show a name
+	if (m_currentDisplay == context.display && m_showNameIn3D && MACRO_Draw2D(context) && MACRO_Foreground(context) && !MACRO_DrawEntityNames(context))
+	{
+		drawNameIn3D(context);
 	}
 
 	//draw entity's children
@@ -743,7 +745,7 @@ void ccHObject::applyGLTransformation(const ccGLMatrix& trans)
 	m_glTransHistory = trans * m_glTransHistory;
 }
 
-void ccHObject::applyGLTransformation_recursive(const ccGLMatrix* transInput/*=NULL*/)
+void ccHObject::applyGLTransformation_recursive(const ccGLMatrix* transInput/*=nullptr*/)
 {
 	ccGLMatrix transTemp;
 	const ccGLMatrix* transToApply = transInput;
@@ -958,7 +960,7 @@ bool ccHObject::fromFile(QFile& in, short dataVersion, int flags)
 		ccHObject* child = New(classID);
 
 		//specifc case of custom objects (defined by plugins)
-		if (classID == CC_TYPES::CUSTOM_H_OBJECT)
+		if ((classID & CC_TYPES::CUSTOM_H_OBJECT) == CC_TYPES::CUSTOM_H_OBJECT)
 		{
 			//store current position
 			size_t originalFilePos = in.pos();

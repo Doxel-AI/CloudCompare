@@ -161,8 +161,8 @@ CC_FILE_ERROR VTKFilter::saveToFile(ccHObject* entity, const QString& filename, 
 		outFile << "COLOR_SCALARS RGB 3" << endl;
 		for (unsigned i = 0; i < ptsCount; ++i)
 		{
-			const ColorCompType* C = vertices->getPointColor(i);
-			outFile << static_cast<float>(C[0]) / ccColor::MAX << " " << static_cast<float>(C[1]) / ccColor::MAX << " " << static_cast<float>(C[2]) / ccColor::MAX << endl;
+			const ccColor::Rgb& C = vertices->getPointColor(i);
+			outFile << static_cast<float>(C.r) / ccColor::MAX << " " << static_cast<float>(C.g) / ccColor::MAX << " " << static_cast<float>(C.b) / ccColor::MAX << endl;
 		}
 	}
 
@@ -348,9 +348,13 @@ CC_FILE_ERROR VTKFilter::loadFile(const QString& filename, ccHObject& container,
 						//first point: check for 'big' coordinates
 						if (iPt == 0)
 						{
-							if (HandleGlobalShift(Pd, Pshift, parameters))
+							bool preserveCoordinateShift = true;
+							if (HandleGlobalShift(Pd, Pshift, preserveCoordinateShift, parameters))
 							{
-								vertices->setGlobalShift(Pshift);
+								if (preserveCoordinateShift)
+								{
+									vertices->setGlobalShift(Pshift);
+								}
 								ccLog::Warning("[VTKFilter::loadFile] Cloud has been recentered! Translation: (%.2f ; %.2f ; %.2f)", Pshift.x, Pshift.y, Pshift.z);
 							}
 						}
@@ -564,7 +568,7 @@ CC_FILE_ERROR VTKFilter::loadFile(const QString& filename, ccHObject& container,
 
 			//warning: multiple colors can be stored on a single line!
 			unsigned iCol = 0;
-			ColorCompType rgb[3];
+			ccColor::Rgb rgb;
 			unsigned coordIndex = 0;
 			while (iCol < lastDataSize)
 			{
@@ -574,7 +578,7 @@ CC_FILE_ERROR VTKFilter::loadFile(const QString& filename, ccHObject& container,
 				for (int i = 0; i < parts.size(); ++i)
 				{
 					bool ok;
-					rgb[coordIndex] = static_cast<ColorCompType>(parts[i].toDouble(&ok) * ccColor::MAX);
+					rgb.rgb[coordIndex] = static_cast<ColorCompType>(parts[i].toDouble(&ok) * ccColor::MAX);
 					if (!ok)
 					{
 						ccLog::Warning("[VTK] Element #%1 of COLOR_SCALARS data is corrupted!", iCol);
@@ -654,11 +658,11 @@ CC_FILE_ERROR VTKFilter::loadFile(const QString& filename, ccHObject& container,
 			if (createSF)
 			{
 				sf = new ccScalarField(qPrintable(lastSfName));
-				if (!sf->reserve(lastDataSize))
+				if (!sf->reserveSafe(lastDataSize))
 				{
 					ccLog::Warning(QString("[VTK] Not enough memory to load scalar field' %1' (will be ignored)").arg(lastSfName));
 					sf->release();
-					sf = 0;
+					sf = nullptr;
 				}
 			}
 
@@ -684,7 +688,7 @@ CC_FILE_ERROR VTKFilter::loadFile(const QString& filename, ccHObject& container,
 							if (sf)
 							{
 								sf->release();
-								sf = 0;
+								sf = nullptr;
 							}
 							iScal = lastDataSize;
 							break;

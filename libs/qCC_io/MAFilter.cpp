@@ -16,6 +16,7 @@
 //##########################################################################
 
 #include "MAFilter.h"
+#include "FileIO.h"
 
 //qCC_db
 #include <ccLog.h>
@@ -24,6 +25,7 @@
 #include <ccProgressDialog.h>
 
 //Qt
+#include <QDateTime>
 #include <QFileInfo>
 
 //System
@@ -143,18 +145,31 @@ CC_FILE_ERROR MAFilter::saveToFile(ccHObject* entity, const QString& filename, c
 	//we extract the (short) filename from the whole path
 	QString baseFilename = QFileInfo(filename).fileName();
 
+	// For details of the format, see:
+	//	http://download.autodesk.com/us/support/files/fileformats.pdf
+	
 	//header
 	if (fprintf(fp,"//Maya ASCII 7.0 scene\n") < 0)
 		{fclose(fp);return CC_FERR_WRITING;}
-	if (fprintf(fp,"//Name: %s\n",qPrintable(baseFilename)) < 0)
+	if (fprintf(fp,"//Name: %s\n", qPrintable(baseFilename)) < 0)
 		{fclose(fp);return CC_FERR_WRITING;}
-	if (fprintf(fp,"//Last modified: Sat, Mai 10, 2008 00:00:00 PM\n") < 0)
+	if (fprintf(fp,"//Last modified: %s\n", qPrintable( QDateTime::currentDateTime().toString( Qt::SystemLocaleShortDate ) )) < 0)
 		{fclose(fp);return CC_FERR_WRITING;}
 	if (fprintf(fp,"requires maya \"4.0\";\n") < 0)
 		{fclose(fp);return CC_FERR_WRITING;}
 	if (fprintf(fp,"currentUnit -l %s -a degree -t film;\n","centimeter") < 0)
 		{fclose(fp);return CC_FERR_WRITING;}
+	
+	//fileInfo
+	if (fprintf(fp,"fileInfo \"application\" \"%s\"\n", qPrintable(FileIO::applicationName())) < 0)
+		{fclose(fp);return CC_FERR_WRITING;}
 
+	if (fprintf(fp,"fileInfo \"product\" \"%s\"\n", qPrintable(FileIO::writerInfo())) < 0)
+		{fclose(fp);return CC_FERR_WRITING;}
+	
+	if (fprintf(fp,"fileInfo \"version\" \"%s\"\n", qPrintable(FileIO::version())) < 0)
+		{fclose(fp);return CC_FERR_WRITING;}
+	
 	//for multiple meshes handling (does not work yet)
 	unsigned char currentMesh = 0;
 
@@ -279,7 +294,7 @@ CC_FILE_ERROR MAFilter::saveToFile(ccHObject* entity, const QString& filename, c
 				if (currentEdgeIndex < 0) //create a new edge
 				{
 					edge* newEdge = new edge;
-					newEdge->nextEdge = NULL;
+					newEdge->nextEdge = nullptr;
 					newEdge->theOtherPoint = b;
 					newEdge->positif = (a == ind[k]);
 					//newEdge->edgeIndex = ++lastEdgeIndexPushed; //don't write the edge right now
@@ -455,7 +470,7 @@ CC_FILE_ERROR MAFilter::saveToFile(ccHObject* entity, const QString& filename, c
 					{
 						faceIndexes* f = new faceIndexes;
 						f->faceIndex = i;
-						f->nextFace = NULL;
+						f->nextFace = nullptr;
 						theFacesIndexes[ind[j]] = f;
 					}
 					else
@@ -465,7 +480,7 @@ CC_FILE_ERROR MAFilter::saveToFile(ccHObject* entity, const QString& filename, c
 							f = f->nextFace;
 						f->nextFace = new faceIndexes;
 						f->nextFace->faceIndex = i;
-						f->nextFace->nextFace = NULL;
+						f->nextFace->nextFace = nullptr;
 					}
 				}
 
@@ -480,10 +495,10 @@ CC_FILE_ERROR MAFilter::saveToFile(ccHObject* entity, const QString& filename, c
 		{
 			for (unsigned i = 0; i < numberOfVertexes; ++i)
 			{
-				const ColorCompType* c = pc->getPointColor(i);
-				ccColor::Rgbf col(	static_cast<float>(c[0])/ccColor::MAX,
-									static_cast<float>(c[1])/ccColor::MAX,
-									static_cast<float>(c[2])/ccColor::MAX);
+				const ccColor::Rgb& c = pc->getPointColor(i);
+				ccColor::Rgbf col(	static_cast<float>(c.r) / ccColor::MAX,
+									static_cast<float>(c.g) / ccColor::MAX,
+									static_cast<float>(c.b) / ccColor::MAX);
 
 				//on compte le nombre de faces
 				int nf = 0;
@@ -517,7 +532,7 @@ CC_FILE_ERROR MAFilter::saveToFile(ccHObject* entity, const QString& filename, c
 						f = f->nextFace;
 						delete oldf;
 					}
-					theFacesIndexes[i] = NULL;
+					theFacesIndexes[i] = nullptr;
 				}
 
 				if (pDlg)

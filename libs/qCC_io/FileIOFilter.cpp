@@ -53,7 +53,7 @@
 #endif
 
 //system
-#include <assert.h>
+#include <cassert>
 #include <vector>
 
 //! Available filters
@@ -178,7 +178,7 @@ FileIOFilter::Shared FileIOFilter::GetFilter(const QString& fileFilter, bool onI
 		}
 	}
 
-	return Shared(0);
+	return Shared(nullptr);
 }
 
 const FileIOFilter::FilterContainer& FileIOFilter::GetFilters()
@@ -196,7 +196,7 @@ FileIOFilter::Shared FileIOFilter::FindBestFilterForExtension(const QString& ext
 			return *it;
 	}
 
-	return Shared(0);
+	return Shared(nullptr);
 }
 
 ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
@@ -209,7 +209,7 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 		ccLog::Error(QString("[Load] Internal error (invalid input filter)").arg(filename));
 		result = CC_FERR_CONSOLE_ERROR;
 		assert(false);
-		return 0;
+		return nullptr;
 	}
 
 	//check file existence
@@ -218,7 +218,7 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 	{
 		ccLog::Error(QString("[Load] File '%1' doesn't exist!").arg(filename));
 		result = CC_FERR_CONSOLE_ERROR; 
-		return 0;
+		return nullptr;
 	}
 
 	//load file
@@ -234,6 +234,16 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 		result = filter->loadFile(	filename,
 									*container,
 									loadParameters);
+	}
+	catch (const std::exception& e)
+	{
+		ccLog::Warning(QString("[I/O] CC has caught an exception while loading file '%1'").arg(filename));
+		ccLog::Warning(QString("[I/O] Exception: %1").arg(e.what()));
+		if (container)
+		{
+			container->removeAllChildren();
+		}
+		result = CC_FERR_CONSOLE_ERROR;
 	}
 	catch (...)
 	{
@@ -274,7 +284,7 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 	else
 	{
 		delete container;
-		container = 0;
+		container = nullptr;
 	}
 
 	return container;
@@ -285,7 +295,7 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 										CC_FILE_ERROR& result,
 										QString fileFilter/*=QString()*/)
 {
-	Shared filter(0);
+	Shared filter(nullptr);
 	
 	//if the right filter is specified by the caller
 	if (!fileFilter.isEmpty())
@@ -295,7 +305,7 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 		{
 			ccLog::Error(QString("[Load] Internal error: no I/O filter corresponds to filter '%1'").arg(fileFilter));
 			result = CC_FERR_CONSOLE_ERROR;
-			return 0;
+			return nullptr;
 		}
 	}
 	else //we need to guess the I/O filter based on the file format
@@ -306,7 +316,7 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 		{
 			ccLog::Error("[Load] Can't guess file format: no file extension");
 			result = CC_FERR_CONSOLE_ERROR;
-			return 0;
+			return nullptr;
 		}
 
 		//convert extension to file format
@@ -317,7 +327,7 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 		{
 			ccLog::Error(QString("[Load] Can't guess file format: unhandled file extension '%1'").arg(extension));
 			result = CC_FERR_CONSOLE_ERROR;
-			return 0;
+			return nullptr;
 		}
 	}
 
@@ -455,12 +465,17 @@ bool FileIOFilter::CheckForSpecialChars(const QString& filename)
 	return (filename.normalized(QString::NormalizationForm_D) != filename);
 }
 
-bool FileIOFilter::HandleGlobalShift(const CCVector3d& P, CCVector3d& Pshift, LoadParameters& loadParameters, bool useInputCoordinatesShiftIfPossible/*=false*/)
+bool FileIOFilter::HandleGlobalShift(	const CCVector3d& P,
+										CCVector3d& Pshift,
+										bool& preserveCoordinateShift,
+										LoadParameters& loadParameters,
+										bool useInputCoordinatesShiftIfPossible/*=false*/)
 {
 	bool shiftAlreadyEnabled = (loadParameters.coordinatesShiftEnabled && *loadParameters.coordinatesShiftEnabled && loadParameters.coordinatesShift);
 	if (shiftAlreadyEnabled)
 	{
 		Pshift = *loadParameters.coordinatesShift;
+		preserveCoordinateShift = loadParameters.preserveShiftOnSave;
 	}
 	
 	bool applyAll = false;
@@ -470,7 +485,8 @@ bool FileIOFilter::HandleGlobalShift(const CCVector3d& P, CCVector3d& Pshift, Lo
 											loadParameters.shiftHandlingMode,
 											shiftAlreadyEnabled || useInputCoordinatesShiftIfPossible,
 											Pshift,
-											0,
+											&preserveCoordinateShift,
+											nullptr,
 											&applyAll) )
 	{
 		//we save coordinates shift information
@@ -478,6 +494,7 @@ bool FileIOFilter::HandleGlobalShift(const CCVector3d& P, CCVector3d& Pshift, Lo
 		{
 			*loadParameters.coordinatesShiftEnabled = true;
 			*loadParameters.coordinatesShift = Pshift;
+			loadParameters.preserveShiftOnSave = preserveCoordinateShift;
 		}
 
 		return true;

@@ -419,10 +419,10 @@ CC_FILE_ERROR LASFilter::saveToFile(ccHObject* entity, const QString& filename, 
 		if (hasColors)
 		{
 			//DGM: LAS colors are stored on 16 bits!
-			const ColorCompType* rgb = theCloud->getPointColor(ptsWritten);
-			point.setField(Id::Red, static_cast<uint16_t>(rgb[0]) << 8);
-			point.setField(Id::Green, static_cast<uint16_t>(rgb[1]) << 8);
-			point.setField(Id::Blue, static_cast<uint16_t>(rgb[2]) << 8);
+			const ccColor::Rgb& rgb = theCloud->getPointColor(ptsWritten);
+			point.setField(Id::Red,   static_cast<uint16_t>(rgb.r) << 8);
+			point.setField(Id::Green, static_cast<uint16_t>(rgb.g) << 8);
+			point.setField(Id::Blue,  static_cast<uint16_t>(rgb.b) << 8);
 		}
 
 		// standard las fields
@@ -737,7 +737,7 @@ struct LasCloudChunk
 				}
 
 				int sfIndex = loadedCloud->addScalarField(field->sf);
-				if (!loadedCloud->hasDisplayedScalarField())
+				if (sfIndex >= 0 && !loadedCloud->hasDisplayedScalarField())
 				{
 					loadedCloud->setCurrentDisplayedScalarField(sfIndex);
 					loadedCloud->showSF(!loadedCloud->hasColors());
@@ -978,7 +978,7 @@ CC_FILE_ERROR LASFilter::loadFile(const QString& filename, ccHObject& container,
 	//if we encounter values using 16 bits (16 bits is the standard!)
 	unsigned char colorCompBitShift = 0;
 	bool forced8bitRgbMode = s_lasOpenDlg->forced8bitRgbMode();
-	ColorCompType rgb[3] = { 0, 0, 0 };
+	ccColor::Rgb rgb(0, 0, 0);
 
 	StringList extraNamesToLoad;
 	std::string extraDimsArg;
@@ -1124,6 +1124,7 @@ CC_FILE_ERROR LASFilter::loadFile(const QString& filename, ccHObject& container,
 		ccPointCloud* loadedCloud = nullptr;
 		std::vector< LasField::Shared > fieldsToLoad;
 		CCVector3d Pshift(0, 0, 0);
+		bool preserveCoordinateShift = true;
 
 		unsigned int fileChunkSize = 0;
 		unsigned int nbPointsRead = 0;
@@ -1157,7 +1158,10 @@ CC_FILE_ERROR LASFilter::loadFile(const QString& filename, ccHObject& container,
 					return false;
 				}
 
-				pointChunk.loadedCloud->setGlobalShift(Pshift);
+				if (preserveCoordinateShift)
+				{
+					pointChunk.loadedCloud->setGlobalShift(Pshift);
+				}
 
 				//save the Spatial reference as meta-data
 				SpatialReference srs = lasHeader.srs();
@@ -1201,9 +1205,12 @@ CC_FILE_ERROR LASFilter::loadFile(const QString& filename, ccHObject& container,
 						}
 				}
 
-				if (HandleGlobalShift(P, Pshift, parameters, useLasShift))
+				if (HandleGlobalShift(P, Pshift, preserveCoordinateShift, parameters, useLasShift))
 				{
-					loadedCloud->setGlobalShift(Pshift);
+					if (preserveCoordinateShift)
+					{
+						loadedCloud->setGlobalShift(Pshift);
+					}
 					ccLog::Warning("[LAS] Cloud has been recentered! Translation: (%.2f ; %.2f ; %.2f)", Pshift.x, Pshift.y, Pshift.z);
 				}
 
@@ -1233,7 +1240,7 @@ CC_FILE_ERROR LASFilter::loadFile(const QString& filename, ccHObject& container,
 							// we must set the color (black) of all previously skipped points
 							for (unsigned int i = 0; i < loadedCloud->size() - 1; ++i)
 							{
-								loadedCloud->addRGBColor(ccColor::black.rgba);
+								loadedCloud->addRGBColor(ccColor::black);
 							}
 						}
 						else
@@ -1263,13 +1270,13 @@ CC_FILE_ERROR LASFilter::loadFile(const QString& filename, ccHObject& container,
 							//we fix all the previously read colors
 							for (unsigned int i = 0; i < loadedCloud->size() - 1; ++i)
 							{
-								loadedCloud->setPointColor(i, ccColor::black.rgba); //255 >> 8 = 0!
+								loadedCloud->setPointColor(i, ccColor::black); //255 >> 8 = 0!
 							}
 						}
 					}
-					rgb[0] = static_cast<ColorCompType>(red >> colorCompBitShift);
-					rgb[1] = static_cast<ColorCompType>(green >> colorCompBitShift);
-					rgb[2] = static_cast<ColorCompType>(blue >> colorCompBitShift);
+					rgb.r = static_cast<ColorCompType>(red >> colorCompBitShift);
+					rgb.g = static_cast<ColorCompType>(green >> colorCompBitShift);
+					rgb.b = static_cast<ColorCompType>(blue >> colorCompBitShift);
 
 					loadedCloud->addRGBColor(rgb);
 				}
@@ -1323,12 +1330,12 @@ CC_FILE_ERROR LASFilter::loadFile(const QString& filename, ccHObject& container,
 					{
 						field->firstValue = value;
 					}
-					if (!ignoreDefaultFields
-						|| value != field->firstValue
-						|| (field->firstValue != field->defaultValue && field->firstValue >= field->minValue))
+					if (	!ignoreDefaultFields
+						||	value != field->firstValue
+						||	(field->firstValue != field->defaultValue && field->firstValue >= field->minValue))
 					{
 						field->sf = new ccScalarField(qPrintable(field->getName()));
-						if (field->sf->reserve(fileChunkSize))
+						if (field->sf->reserveSafe(fileChunkSize))
 						{
 							field->sf->link();
 							if (field->type == LAS_TIME)
@@ -1340,11 +1347,13 @@ CC_FILE_ERROR LASFilter::loadFile(const QString& filename, ccHObject& container,
 								field->firstValue = 0;
 							}
 
-							for (unsigned int i = 0; i < loadedCloud->size() - 1; ++i) {
-								field->sf->addElement(static_cast<ScalarType>(field->defaultValue));
+							ScalarType defaultValue = static_cast<ScalarType>(field->defaultValue);
+							for (unsigned i = 1; i < loadedCloud->size(); ++i)
+							{
+								field->sf->emplace_back(defaultValue);
 							}
 							ScalarType s = static_cast<ScalarType>(value);
-							field->sf->addElement(s);
+							field->sf->emplace_back(s);
 						}
 						else
 						{

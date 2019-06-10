@@ -20,16 +20,16 @@
 #define GRID_3D_HEADER
 
 //Local
+#include "CCMiscTools.h"
 #include "GenericCloud.h"
 #include "GenericIndexedMesh.h"
 #include "GenericProgressCallback.h"
 #include "GenericTriangle.h"
-#include "CCMiscTools.h"
 
 //System
+#include <cassert>
+#include <cstdio>
 #include <vector>
-#include <assert.h>
-#include <stdio.h> //for sprintf
 
 namespace CCLib
 {
@@ -116,7 +116,7 @@ public:
 						PointCoordinateType cellLength,
 						const CCVector3& gridMinCorner,
 						GridElement intersectValue = 0,
-						GenericProgressCallback* progressCb = 0)
+						GenericProgressCallback* progressCb = nullptr)
 	{
 		if (!mesh || !isInitialized())
 		{
@@ -339,7 +339,7 @@ public:
 						PointCoordinateType cellLength,
 						const CCVector3& gridMinCorner,
 						GridElement intersectValue = 0,
-						GenericProgressCallback* progressCb = 0)
+						GenericProgressCallback* progressCb = nullptr)
 	{
 		if (!cloud || !isInitialized())
 		{
@@ -453,9 +453,9 @@ public:
 	}
 
 	//! Gives access to the internal grid data (with margin)
-	inline GridElement* data() { return &(m_grid[0]); }
+	inline GridElement* data() { return m_grid.data(); }
 	//! Gives access to the internal grid data (with margin) (const version)
-	inline const GridElement* data() const { return &(m_grid[0]); }
+	inline const GridElement* data() const { return m_grid.data(); }
 
 	//! Returns the number of cell count (whithout margin)
 	inline unsigned innerCellCount() const { return m_innerCellCount; }
