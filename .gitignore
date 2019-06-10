@@ -1,6 +1,7 @@
 #################
 ## Eclipse
-
+.vscode
+xcode
 *.pydevproject
 .project
 .metadata

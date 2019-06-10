@@ -1,9 +1,13 @@
 cmake_minimum_required(VERSION 3.0)
 
+set(CMAKE_MACOSX_RPATH 1)
+
 option( INSTALL_QPCL_PLUGIN "Check to install qPCL plugin" ON )
 
 # CloudCompare 'PCL' bridge plugin
 if (INSTALL_QPCL_PLUGIN)
+
+    find_package(FLANN REQUIRED)
     #requires PCL
     find_package(PCL REQUIRED)
     

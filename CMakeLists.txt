@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
+set(CMAKE_MACOSX_RPATH 1)
+
 cmake_policy(PUSH)
 
 project( CloudCompareProjects )
@@ -10,6 +12,8 @@ include( cmake/CMakeSetCompilerOptions.cmake )
 
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} ${CC_MAC_DEV_PATHS})
 
+
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules/" ${CMAKE_MODULE_PATH})
 
 # Default debug suffix for libraries.
 set( CMAKE_DEBUG_POSTFIX "d" )
