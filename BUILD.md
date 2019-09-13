@@ -1,5 +1,5 @@
 # Compilation of CloudCompare 2.7+ (with CMake)
-
+CHanged something
 **WARNING**: if you already have a clone of the CloudCompare git repository (prior to July 2015), you may want to update/checkout the submodules with ```git submodule update --init --recursive```
 
 ## Prerequisites
